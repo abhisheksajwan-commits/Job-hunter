@@ -1,0 +1,30 @@
+# Render "Blueprint" - lets you deploy this whole app with one click from
+# the Render dashboard (New -> Blueprint -> pick this repo) instead of
+# clicking through every setting by hand.
+#
+# Secrets (marked sync: false below) are NOT stored in this file - Render
+# will prompt you to type each one in during the blueprint setup, and they
+# stay private in Render's dashboard, never in this repo.
+services:
+  - type: web
+    name: job-scout
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.9
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

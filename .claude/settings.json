@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/Users/tcadmin/job-hunter/venv/bin/python main.py --dry-run)",
+      "Bash(/Users/tcadmin/job-hunter/venv/bin/python main.py)",
+      "Bash(/Users/tcadmin/job-hunter/venv/bin/python step1_test_scraper.py)",
+      "Bash(/Users/tcadmin/job-hunter/venv/bin/pip list)",
+      "Bash(/Users/tcadmin/job-hunter/venv/bin/pip show *)"
+    ]
+  }
+}

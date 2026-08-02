@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Scout — jobs & internships for Indian students</title>
+<meta name="description" content="Search Indeed, Naukri & LinkedIn at once. AI scores every opening against your resume, so you only read the ones worth reading.">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <div class="brand">🎯 Job Scout</div>
+      <p class="tagline">Search Indeed, Naukri &amp; LinkedIn at once — scored against YOUR resume, so you only read the ones worth reading.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <form id="search-form" class="card search-form" novalidate>
+      <div class="field">
+        <label for="role">What are you looking for?</label>
+        <input id="role" name="role" type="text" required maxlength="200"
+               placeholder="e.g. product manager internship, remote or Bangalore, paid">
+      </div>
+
+      <div class="field">
+        <label for="location">Location</label>
+        <input id="location" name="location" type="text" maxlength="100"
+               placeholder="India" value="India">
+      </div>
+
+      <div class="field">
+        <span class="label-like">Resume <span class="optional">(optional, but scores are far more accurate with one)</span></span>
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab active" data-tab="paste" role="tab" aria-selected="true">Paste text</button>
+          <button type="button" class="tab" data-tab="upload" role="tab" aria-selected="false">Upload PDF</button>
+        </div>
+        <div class="tab-panel" data-panel="paste">
+          <textarea id="resume_text" name="resume_text" rows="6"
+                    placeholder="Paste your resume here…"></textarea>
+        </div>
+        <div class="tab-panel hidden" data-panel="upload">
+          <input id="resume_file" name="resume_file" type="file" accept=".pdf,application/pdf">
+          <p class="hint">PDF only, under 5&nbsp;MB. Scanned image PDFs (no selectable text) can't be read.</p>
+        </div>
+      </div>
+
+      <button type="submit" id="submit-btn" class="btn-primary">🔎 Find Jobs</button>
+      <p id="form-error" class="error-text hidden"></p>
+    </form>
+
+    <section id="progress" class="card progress hidden" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <p id="progress-text">Working on it…</p>
+    </section>
+
+    <section id="results" class="results hidden" aria-live="polite"></section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <!-- TODO: replace with your bot's real link, e.g. https://t.me/YourBotUsername -->
+      <p>Job Scout · also available on Telegram for on-the-go search.</p>
+    </div>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

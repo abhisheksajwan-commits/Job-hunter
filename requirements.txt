@@ -1,0 +1,26 @@
+# Job Scout - production dependencies (pinned to what was tested).
+# Install with: pip install -r requirements.txt
+
+# Web server (runs the API + the Telegram webhook + serves the frontend)
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
+python-multipart==0.0.32   # needed for FastAPI file-upload form fields
+
+# Telegram bot
+python-telegram-bot==22.8
+
+# Job scraping
+python-jobspy==1.1.82
+pandas==2.3.3               # jobspy's dependency, pinned for reproducibility
+
+# Resume PDF reading
+pypdf==6.14.2
+
+# AI brains (only the keys you set in .env are actually used)
+google-genai==2.16.0
+anthropic==0.120.2
+groq==1.5.0
+
+# Config
+python-dotenv==1.2.2
+requests==2.34.2
