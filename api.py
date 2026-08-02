@@ -30,12 +30,12 @@ import logging
 import os
 import time
 import uuid
+from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from http import HTTPStatus
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response, HTTPException, Form, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from telegram import Update
 
@@ -50,7 +50,9 @@ log = logging.getLogger("jobscout.api")
 
 WEBHOOK_PATH = "/telegram-webhook"
 WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET")
-PUBLIC_URL = os.getenv("PUBLIC_URL")  # e.g. https://job-scout.onrender.com
+# Render supplies this automatically for web services. PUBLIC_URL remains an
+# optional override for a custom domain or another hosting platform.
+PUBLIC_URL = os.getenv("PUBLIC_URL") or os.getenv("RENDER_EXTERNAL_URL")
 
 application = bot.build_application(for_webhook=True)
 
@@ -75,16 +77,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Job Scout API", lifespan=lifespan)
-
-# Frontend and API are served from the same origin in production (see the
-# static mount at the bottom), so this is mainly a safety net for local
-# frontend development against a separately-running API.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 @app.get("/healthz")
@@ -111,14 +103,41 @@ async def telegram_webhook(request: Request):
 
 MAX_CONCURRENT_JOBS = 5          # protects the free tier's thin CPU/RAM
 JOB_TTL_SECONDS = 15 * 60        # stop remembering a search after 15 minutes
+SEARCH_WINDOW_SECONDS = 10 * 60  # basic quota protection for the public API
+MAX_SEARCHES_PER_IP = 3
 
 JOBS = {}  # job_id -> {"status", "result", "error", "created_at"}
+SEARCH_REQUESTS = defaultdict(deque)  # client IP -> monotonic request times
 
 
 def _prune_old_jobs():
     cutoff = time.monotonic() - JOB_TTL_SECONDS
     for job_id in [j for j, v in JOBS.items() if v["created_at"] < cutoff]:
         del JOBS[job_id]
+
+
+def _check_search_rate_limit(request: Request):
+    """Reject bursts that could exhaust job-board or AI-provider quotas.
+
+    Render forwards the originating address in X-Forwarded-For. Falling back
+    to Request.client also keeps this useful during local development.
+    """
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    client_ip = forwarded_for.split(",", 1)[0].strip()
+    if not client_ip and request.client:
+        client_ip = request.client.host
+    client_ip = client_ip or "unknown"
+
+    now = time.monotonic()
+    timestamps = SEARCH_REQUESTS[client_ip]
+    while timestamps and timestamps[0] <= now - SEARCH_WINDOW_SECONDS:
+        timestamps.popleft()
+    if len(timestamps) >= MAX_SEARCHES_PER_IP:
+        raise HTTPException(
+            status_code=429,
+            detail="Search limit reached. Please wait a few minutes and try again.",
+        )
+    timestamps.append(now)
 
 
 async def _run_search_job(job_id, search_term, location, resume, requirement):
@@ -159,6 +178,7 @@ async def _run_search_job(job_id, search_term, location, resume, requirement):
 
 @app.post("/api/search")
 async def api_search(
+    request: Request,
     role: str = Form(..., description="e.g. 'product manager internship'"),
     location: str = Form("India"),
     resume_text: str = Form(""),
@@ -170,6 +190,8 @@ async def api_search(
     location = (location or "India").strip()[:100] or "India"
 
     resume = resume_text.strip()
+    if len(resume) > 6000:
+        raise HTTPException(status_code=422, detail="Pasted resume text must be 6,000 characters or fewer.")
     if resume_file is not None and resume_file.filename:
         if resume_file.content_type != "application/pdf" and not resume_file.filename.lower().endswith(".pdf"):
             raise HTTPException(status_code=422, detail="Resume file must be a PDF.")
@@ -186,6 +208,7 @@ async def api_search(
         resume = extracted
 
     _prune_old_jobs()
+    _check_search_rate_limit(request)
     in_progress = sum(1 for j in JOBS.values() if j["status"] in ("scraping", "scoring"))
     if in_progress >= MAX_CONCURRENT_JOBS:
         raise HTTPException(status_code=429,

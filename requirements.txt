@@ -3,7 +3,9 @@
 
 # Web server (runs the API + the Telegram webhook + serves the frontend)
 fastapi==0.141.1
-uvicorn[standard]==0.52.1
+# Base Uvicorn is sufficient for this app and avoids optional native extras
+# that do not publish Python 3.12 Linux wheels.
+uvicorn==0.52.1
 python-multipart==0.0.32   # needed for FastAPI file-upload form fields
 
 # Telegram bot
@@ -11,7 +13,9 @@ python-telegram-bot==22.8
 
 # Job scraping
 python-jobspy==1.1.82
-pandas==2.3.3               # jobspy's dependency, pinned for reproducibility
+# 2.3.3 has no Linux wheel for the Python 3.12 Render runtime; 2.3.2 is
+# compatible with JobSpy's pinned NumPy 1.26.3 dependency.
+pandas==2.3.2
 
 # Resume PDF reading
 pypdf==6.14.2

@@ -1,6 +1,7 @@
 # Secrets - never commit these
 .env
 .env.*
+!.env.example
 
 # Personal/local Claude Code settings (machine-specific paths)
 .claude/settings.local.json
