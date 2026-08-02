@@ -25,6 +25,7 @@ for testing the website's search API on its own.)
 """
 
 import asyncio
+import hashlib
 import hmac
 import logging
 import os
@@ -49,7 +50,14 @@ load_dotenv(os.path.join(FOLDER, ".env"))  # engine.py also loads this; harmless
 log = logging.getLogger("jobscout.api")
 
 WEBHOOK_PATH = "/telegram-webhook"
-WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET")
+# Render's generated secret is base64, whereas Telegram accepts only
+# [A-Za-z0-9_-] in a webhook secret token. Hashing produces a fixed, safe
+# 64-character token without exposing the stored secret.
+_webhook_secret_value = os.getenv("TELEGRAM_WEBHOOK_SECRET")
+WEBHOOK_SECRET = (
+    hashlib.sha256(_webhook_secret_value.encode()).hexdigest()
+    if _webhook_secret_value else None
+)
 # Render supplies this automatically for web services. PUBLIC_URL remains an
 # optional override for a custom domain or another hosting platform.
 PUBLIC_URL = os.getenv("PUBLIC_URL") or os.getenv("RENDER_EXTERNAL_URL")

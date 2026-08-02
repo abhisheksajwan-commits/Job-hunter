@@ -17,7 +17,8 @@ against a student's resume. The website and API are served by the same process.
    URL, then verify `/healthz` returns `{\"ok\":true}`.
 
 Render supplies the public URL automatically. It also generates and stores the
-Telegram webhook secret, and the app registers the webhook on startup.
+Telegram webhook secret; the app derives a Telegram-safe token from it and
+registers the webhook on startup.
 
 ## Local development
 
