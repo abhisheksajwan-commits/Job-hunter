@@ -1,7 +1,7 @@
 # Job Scout - production dependencies (pinned to what was tested).
 # Install with: pip install -r requirements.txt
 
-# Web server (runs the API + the Telegram webhook + serves the frontend)
+# Web server (runs the API + the Telegram webhook)
 fastapi==0.141.1
 # Base Uvicorn is sufficient for this app and avoids optional native extras
 # that do not publish Python 3.12 Linux wheels.
@@ -27,4 +27,3 @@ groq==1.5.0
 
 # Config
 python-dotenv==1.2.2
-requests==2.34.2

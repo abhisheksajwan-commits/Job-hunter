@@ -45,16 +45,23 @@ Student                          Job Scout bot
   robots (captcha) — the bot skips any board that doesn't answer and uses the
   rest, so one blocked board never breaks the product.
 
-### What exists in this folder
+### What exists in this repo
 | File | What it is |
 |------|------------|
-| `bot.py` | **The MVP** — the conversational bot described above |
-| `main.py` | The v0 one-shot script (scrape → score → send). Still useful for scheduled digests later |
-| `users.json` | The bot's memory of each student (created on first use) |
+| `backend/bot.py` | **The MVP** — the conversational bot described above |
+| `backend/engine.py` | Shared search/scoring logic used by both the bot and the website |
+| `backend/api.py` | The deployed backend (Telegram webhook + website's REST API) |
+| `backend/users.json` | The bot's memory of each student (created on first use) |
+| `frontend/` | The website, deployed separately (see README.md) |
 | `STRATEGY.md` | This document |
 
-Run the bot: `python bot.py` — stays on until stopped, and needs the laptop
-awake. Cloud hosting fixes that (Part 2, step 4).
+Cloud hosting (backend on Render, frontend on Vercel — see README.md) is live,
+so the bot no longer needs a laptop to stay awake (Part 2, step 4, done).
+
+*(The old `main.py` one-shot script and `step1_test_scraper.py` test script
+were removed 3 Aug 2026 — both predated `engine.py` and duplicated what it now
+does better. A future scheduled-digest feature should call `engine.py`
+directly, the same way `bot.py` and `api.py` do.)*
 
 ---
 

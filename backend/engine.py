@@ -265,6 +265,31 @@ JSON with keys is_job_search, search_term, location.""", SEARCH_SCHEMA, max_toke
     return data
 
 
+def _clean_field(row, field):
+    """One cell from a JobSpy result row -> a plain string.
+    pandas uses NaN (a float) for empty cells - turn those into ""."""
+    value = row.get(field)
+    return "" if value is None or str(value) == "nan" else str(value)
+
+
+def _format_pay(row):
+    """Pay columns on a JobSpy row -> one display string, e.g. 'INR 8,000–12,000/mo'.
+    "" if the board didn't list pay at all."""
+    lo, hi = row.get("min_amount"), row.get("max_amount")
+    lo = None if lo is None or str(lo) == "nan" else lo
+    hi = None if hi is None or str(hi) == "nan" else hi
+    if lo is None and hi is None:
+        return ""
+    fmt = lambda x: f"{int(float(x)):,}"
+    amount = (f"{fmt(lo)}–{fmt(hi)}" if lo is not None and hi is not None
+              else fmt(lo if lo is not None else hi))
+    per = {"yearly": "/yr", "monthly": "/mo", "weekly": "/wk",
+           "daily": "/day", "hourly": "/hr"}.get(
+        str(row.get("interval") or "").lower(), "")
+    currency = _clean_field(row, "currency")
+    return f"{currency} {amount}{per}".strip()
+
+
 def scrape_one_board(board, search_term, location):
     """One board -> list of job dicts. Empty list if blocked or nothing found."""
     jobs = []
@@ -280,29 +305,14 @@ def scrape_one_board(board, search_term, location):
         )
         if df is not None and len(df) > 0:
             for _, row in df.iterrows():
-                def clean(field):
-                    v = row.get(field)
-                    return "" if v is None or str(v) == "nan" else str(v)
-                def pay():
-                    lo, hi = row.get("min_amount"), row.get("max_amount")
-                    lo = None if lo is None or str(lo) == "nan" else lo
-                    hi = None if hi is None or str(hi) == "nan" else hi
-                    if lo is None and hi is None:
-                        return ""
-                    fmt = lambda x: f"{int(float(x)):,}"
-                    amount = (f"{fmt(lo)}–{fmt(hi)}" if lo is not None and hi is not None
-                              else fmt(lo if lo is not None else hi))
-                    per = {"yearly": "/yr", "monthly": "/mo", "weekly": "/wk",
-                           "daily": "/day", "hourly": "/hr"}.get(
-                        str(row.get("interval") or "").lower(), "")
-                    currency = clean("currency")
-                    return f"{currency} {amount}{per}".strip()
                 jobs.append({
-                    "title": clean("title") or "(no title)",
-                    "company": clean("company") or "(company not named)",
-                    "location": clean("location"), "url": clean("job_url"),
-                    "board": board, "pay": pay(), "date": clean("date_posted"),
-                    "description": clean("description")[:700],
+                    "title": _clean_field(row, "title") or "(no title)",
+                    "company": _clean_field(row, "company") or "(company not named)",
+                    "location": _clean_field(row, "location"),
+                    "url": _clean_field(row, "job_url"),
+                    "board": board, "pay": _format_pay(row),
+                    "date": _clean_field(row, "date_posted"),
+                    "description": _clean_field(row, "description")[:700],
                 })
     except Exception as error:
         log.warning(f"{board} failed: {error}")

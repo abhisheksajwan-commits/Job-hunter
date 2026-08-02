@@ -2,6 +2,9 @@
 # the Render dashboard (New -> Blueprint -> pick this repo) instead of
 # clicking through every setting by hand.
 #
+# Only the backend/ folder is deployed here - the frontend/ folder is a
+# separate static site meant for Vercel (see README.md).
+#
 # Secrets (marked sync: false below) are NOT stored in this file - Render
 # will prompt you to type each one in during the blueprint setup, and they
 # stay private in Render's dashboard, never in this repo.
@@ -10,6 +13,7 @@ services:
     name: job-scout
     runtime: python
     plan: free
+    rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /healthz
@@ -28,3 +32,8 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: FRONTEND_URL
+        # Your Vercel URL, once you have it (e.g. https://job-scout.vercel.app).
+        # Safe to leave blank for now - edit it in Render's dashboard later,
+        # which will auto-redeploy. Comma-separate if you have more than one.
+        value: ""

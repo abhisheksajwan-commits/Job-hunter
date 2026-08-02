@@ -1,8 +1,8 @@
 """
 JOB SCOUT API - api.py
 
-THIS is the one process you actually deploy (e.g. to Render). It runs a single
-web server that does two jobs at once:
+THIS is the backend you deploy to Render. It runs a single web server that
+does two jobs at once:
 
   1. Telegram bot, via WEBHOOK instead of polling - Telegram pushes messages
      to us at /telegram-webhook instead of us constantly asking "anything
@@ -10,13 +10,13 @@ web server that does two jobs at once:
      free web-service tiers and gets put to sleep; a webhook bot only wakes
      up when a real message arrives, which counts as normal web traffic.
 
-  2. The website's backend - a small REST API the frontend (in static/) calls
-     to run a search and get results, using the exact same engine.py that
-     powers the Telegram bot, so results are identical either way.
+  2. The website's backend - a small REST API the frontend (deployed
+     separately to Vercel, see ../frontend/) calls to run a search and get
+     results, using the exact same engine.py that powers the Telegram bot,
+     so results are identical either way.
 
-It also serves the frontend itself (the static/ folder) from the same
-process, so the whole product is ONE deployable thing, ONE free Render
-service, ONE dashboard.
+The frontend lives on a different domain (Vercel) than this API (Render), so
+CORS must explicitly allow it - see FRONTEND_URL below.
 
 Run it locally for testing:   uvicorn api:app --reload --port 8000
 (The Telegram webhook only gets registered if PUBLIC_URL and
@@ -37,14 +37,13 @@ from http import HTTPStatus
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response, HTTPException, Form, UploadFile, File
-from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from telegram import Update
 
 import bot
 import engine
 
 FOLDER = os.path.dirname(os.path.abspath(__file__))
-STATIC_DIR = os.path.join(FOLDER, "static")
 load_dotenv(os.path.join(FOLDER, ".env"))  # engine.py also loads this; harmless twice
 
 log = logging.getLogger("jobscout.api")
@@ -61,6 +60,12 @@ WEBHOOK_SECRET = (
 # Render supplies this automatically for web services. PUBLIC_URL remains an
 # optional override for a custom domain or another hosting platform.
 PUBLIC_URL = os.getenv("PUBLIC_URL") or os.getenv("RENDER_EXTERNAL_URL")
+
+# The Vercel URL(s) the frontend is deployed at, comma-separated if you have
+# more than one (e.g. production + a preview deploy). Set this in Render's
+# dashboard once you know your Vercel URL. Left unset, every origin is
+# allowed - fine for getting things working, tighten it once both are live.
+FRONTEND_ORIGINS = [origin.strip() for origin in os.getenv("FRONTEND_URL", "").split(",") if origin.strip()]
 
 application = bot.build_application(for_webhook=True)
 
@@ -85,6 +90,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Job Scout API", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=FRONTEND_ORIGINS or ["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/healthz")
@@ -114,11 +125,14 @@ JOB_TTL_SECONDS = 15 * 60        # stop remembering a search after 15 minutes
 SEARCH_WINDOW_SECONDS = 10 * 60  # basic quota protection for the public API
 MAX_SEARCHES_PER_IP = 3
 
+# In-memory only - simple and fast, but a server restart forgets every
+# in-flight search (the student just retries) and every rate-limit counter.
 JOBS = {}  # job_id -> {"status", "result", "error", "created_at"}
 SEARCH_REQUESTS = defaultdict(deque)  # client IP -> monotonic request times
 
 
 def _prune_old_jobs():
+    """Forget searches older than JOB_TTL_SECONDS so JOBS doesn't grow forever."""
     cutoff = time.monotonic() - JOB_TTL_SECONDS
     for job_id in [j for j, v in JOBS.items() if v["created_at"] < cutoff]:
         del JOBS[job_id]
@@ -222,6 +236,10 @@ async def api_search(
         raise HTTPException(status_code=429,
                             detail="Lots of searches running right now - try again in a moment.")
 
+    # A search takes ~10-30s (scraping + AI scoring), too slow for one HTTP
+    # request to just sit and wait on. So: start it in the background and
+    # hand back a job_id right away; the frontend polls the endpoint below
+    # with that id until status is "done" (see frontend/app.js).
     job_id = uuid.uuid4().hex
     JOBS[job_id] = {"status": "queued", "result": None, "error": None,
                     "created_at": time.monotonic()}
@@ -231,14 +249,8 @@ async def api_search(
 
 @app.get("/api/search/{job_id}")
 async def api_search_status(job_id: str):
+    """Polled by the frontend every few seconds until status is 'done' or 'error'."""
     job = JOBS.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Unknown or expired search.")
     return {"status": job["status"], "result": job["result"], "error": job["error"]}
-
-
-# --- Frontend (static site) ---------------------------------------------
-# Must be mounted LAST - it's a catch-all for any path not already matched
-# by a route above, which is exactly what we want for a single-page app.
-
-app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")

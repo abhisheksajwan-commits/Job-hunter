@@ -1,7 +1,8 @@
 // Job Scout frontend logic.
-// Talks to the same backend (api.py) that also runs the Telegram bot, via a
-// tiny REST API: POST /api/search kicks a search off, GET /api/search/{id}
-// is polled until it's done.
+// Talks to the backend (api.py, deployed separately - see config.js for its
+// URL) that also runs the Telegram bot, via a tiny REST API: POST
+// /api/search kicks a search off, GET /api/search/{id} is polled until
+// it's done.
 
 const form = document.getElementById("search-form");
 const submitBtn = document.getElementById("submit-btn");
@@ -91,7 +92,7 @@ form.addEventListener("submit", async (event) => {
   progressText.textContent = "Getting started…";
 
   try {
-    const response = await fetch("/api/search", { method: "POST", body });
+    const response = await fetch(`${API_BASE_URL}/api/search`, { method: "POST", body });
     if (!response.ok) {
       const detail = await safeErrorDetail(response);
       showFormError(detail || "Something went wrong starting your search.");
@@ -123,7 +124,7 @@ async function pollForResult(jobId) {
     await sleep(POLL_INTERVAL_MS);
     let response;
     try {
-      response = await fetch(`/api/search/${jobId}`);
+      response = await fetch(`${API_BASE_URL}/api/search/${jobId}`);
     } catch {
       continue; // transient network hiccup - just try again next tick
     }
